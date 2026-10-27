@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>GUPPY LAB</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#171b22;color:white;font-family:Arial,sans-serif;overflow:hidden}
+header{height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:#252c36;border-bottom:2px solid #414c5b}
+h1{font-size:20px;letter-spacing:2px;margin:0;color:#80eaff}
+button{border:0;border-radius:10px;padding:10px 13px;font-weight:bold;color:white;background:#384657}
+button:active{transform:scale(.95)}
+#tools{display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:#252c36}
+#tools button{font-size:12px}
+#lab{display:block;width:100%;height:calc(100dvh - 120px);background:#aeb6bd;touch-action:none}
+#status{position:absolute;bottom:0;left:0;right:0;background:#252c36;padding:9px;text-align:center;font-size:12px;color:#cbd5e1}
+</style>
+</head>
+<body>
+<header><h1>🧪 GUPPY LAB</h1><span id="count">GUPPY: 1</span></header>
+<div id="tools">
+<button id="add">＋ เพิ่ม Guppy</button>
+<button id="ball">⚽ ลูกบอล</button>
+<button id="box">📦 กล่อง</button>
+<button id="clear">🧹 เคลียร์ห้อง</button>
+</div>
+<canvas id="lab"></canvas>
+<div id="status">แตะค้างที่ Guppy เพื่อลาก แล้วปล่อยเพื่อโยน!</div>
+<script>
+const canvas=document.querySelector("#lab"),ctx=canvas.getContext("2d");
+let W=0,H=0,guppies=[],objects=[],drag=null,last={x:0,y:0},clean=0;
+const colors=["#55c8ff","#ff8b9d","#ffd166","#a78bfa","#80ed99","#ff9f43"];
+function resize(){
+ const r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;
+ W=r.width;H=r.height;canvas.width=W*d;canvas.height=H*d;
+ ctx.setTransform(d,0,0,d,0,0);
+}
+window.addEventListener("resize",resize);resize();
+function spawn(x=W/2,y=H/3){
+ guppies.push({x,y,vx:(Math.random()-.5)*3,vy:0,r:23,
+ c:colors[Math.floor(Math.random()*colors.length)],mood:"happy",chat:0});
+ updateCount();
+}
+function updateCount(){document.querySelector("#count").textContent="GUPPY: "+guppies.length}
+spawn();
+document.querySelector("#add").onclick=()=>spawn(50+Math.random()*(W-100),80+Math.random()*(H/2));
+document.querySelector("#ball").onclick=()=>objects.push({x:W/2,y:H/3,r:17,type:"ball",vx:2,vy:0});
+document.querySelector("#box").onclick=()=>objects.push({x:W/2,y:H/3,r:20,type:"box",vx:-1,vy:0});
+document.querySelector("#clear").onclick=()=>{
+ clean=1;
+ for(const g of guppies){g.vx=(Math.random()-.5)*14;g.vy=-8}
+ setTimeout(()=>{objects=[];clean=0},1800);
+};
+function pos(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+canvas.addEventListener("pointerdown",e=>{
+ const p=pos(e);
+ for(let i=guppies.length-1;i>=0;i--){
+  const g=guppies[i];
+  if(Math.hypot(p.x-g.x,p.y-g.y)<g.r+8){drag={g,x:p.x,y:p.y};g.vx=0;g.vy=0;canvas.setPointerCapture(e.pointerId);return}
+ }
+});
+canvas.addEventListener("pointermove",e=>{
+ if(!drag)return;
+ const p=pos(e);drag.g.x=p.x;drag.g.y=p.y;
+ drag.g.vx=(p.x-drag.x)*.5;drag.g.vy=(p.y-drag.y)*.5;
+ drag.x=p.x;drag.y=p.y;
+});
+canvas.addEventListener("pointerup",()=>drag=null);
+canvas.addEventListener("pointercancel",()=>drag=null);
+function drawGuppy(g,t){
+ ctx.save();ctx.translate(g.x,g.y);
+ // legs
+ ctx.strokeStyle="#38414b";ctx.lineWidth=5;ctx.lineCap="round";
+ ctx.beginPath();ctx.moveTo(-10,15);ctx.lineTo(-15,27);
+ ctx.moveTo(10,15);ctx.lineTo(15,27);ctx.stroke();
+ // arms
+ ctx.beginPath();ctx.moveTo(-17,0);ctx.lineTo(-27,8+Math.sin(t/150)*2);
+ ctx.moveTo(17,0);ctx.lineTo(27,8-Math.sin(t/150)*2);ctx.stroke();
+ // body
+ ctx.fillStyle=g.c;ctx.strokeStyle="#263442";ctx.lineWidth=3;
+ ctx.beginPath();ctx.arc(0,0,g.r,0,Math.PI*2);ctx.fill();ctx.stroke();
+ // eyes
+ ctx.fillStyle="white";
+ ctx.beginPath();ctx.arc(-8,-6,7,0,7);ctx.arc(8,-6,7,0,7);ctx.fill();
+ ctx.fillStyle="#17212c";
+ ctx.beginPath();ctx.arc(-7,-5,3,0,7);ctx.arc(9,-5,3,0,7);ctx.fill();
+ // mouth
+ ctx.strokeStyle="#263442";ctx.lineWidth=2;
+ ctx.beginPath();ctx.arc(0,5,7,.15,Math.PI-.15);ctx.stroke();
+ if(g.mood==="sad"){
+  ctx.fillStyle="#405060";ctx.font="bold 13px Arial";ctx.fillText("♥",17,-19);
+ }
+ ctx.restore();
+}
+function frame(t){
+ ctx.clearRect(0,0,W,H);
+ // laboratory walls and floor
+ ctx.fillStyle="#c4cbd0";ctx.fillRect(0,0,W,H);
+ ctx.strokeStyle="#b1b9c0";ctx.lineWidth=1;
+ for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+ for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+ ctx.fillStyle="#7f8a94";ctx.fillRect(0,H-22,W,22);
+ ctx.fillStyle="#64717c";ctx.fillRect(0,H-22,W,3);
+ for(let i=0;i<guppies.length;i++){
+  const g=guppies[i];
+  if(drag&&drag.g===g){}else{
+   g.vy+=.28;g.x+=g.vx;g.y+=g.vy;g.vx*=.99;
+   if(g.x<g.r||g.x>W-g.r){g.vx*=-.8;g.x=Math.max(g.r,Math.min(W-g.r,g.x))}
+   if(g.y>H-22-g.r){g.y=H-22-g.r;g.vy*=-.55;if(Math.abs(g.vy)<1)g.vy=0}
+   if(g.y<g.r){g.y=g.r;g.vy*=-.5}
+  }
+  // friendly chatter when nearby
+  const other=guppies.find(o=>o!==g&&Math.hypot(o.x-g.x,o.y-g.y)<95);
+  if(other&&Math.random()<.003){
+   g.chat=90;g.mood="happy";
+  }
+  if(g.chat>0){
+   g.chat--;
+   ctx.fillStyle="white";ctx.strokeStyle="#485562";ctx.lineWidth=1;
+   ctx.beginPath();ctx.roundRect(g.x-22,g.y-52,44,24,8);ctx.fill();ctx.stroke();
+   ctx.fillStyle="#25313c";ctx.font="12px Arial";ctx.fillText("Hi!",g.x-8,g.y-36);
+  }
+  for(let j=i+1;j<guppies.length;j++){
+   const b=guppies[j],dx=b.x-g.x,dy=b.y-g.y,d=Math.hypot(dx,dy)||1,min=g.r+b.r;
+   if(d<min){
+    const nx=dx/d,ny=dy/d;
+    g.x-=nx*2;g.y-=ny*2;b.x+=nx*2;b.y+=ny*2;
+    g.vx-=nx*1.1;g.vy-=ny*1.1;b.vx+=nx*1.1;b.vy+=ny*1.1;
+   }
+  }
+  drawGuppy(g,t);
+ }
+ for(const o of objects){
+  o.vy+=.3;o.x+=o.vx;o.y+=o.vy;o.vx*=.995;
+  if(o.y>H-22-o.r){o.y=H-22-o.r;o.vy*=-.5}
+  if(o.x<o.r||o.x>W-o.r)o.vx*=-.8;
+  ctx.fillStyle=o.type==="ball"?"#ffcc42":"#8c99a5";
+  ctx.strokeStyle="#364451";ctx.lineWidth=3;
+  if(o.type==="ball"){ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,Math.PI*2);ctx.fill();ctx.stroke()}
+  else{ctx.fillRect(o.x-o.r,o.y-o.r,o.r*2,o.r*2);ctx.strokeRect(o.x-o.r,o.y-o.r,o.r*2,o.r*2)}
+ }
+ if(clean){
+  ctx.fillStyle="rgba(100,220,255,.16)";
+  ctx.fillRect(0,0,W,H);
+ }
+ requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
